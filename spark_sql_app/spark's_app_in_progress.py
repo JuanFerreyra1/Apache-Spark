@@ -1,14 +1,16 @@
 import re
-
+import os
 from pyspark.sql import SparkSession
 
 class Insertion():
-    def __init__(self,tab,par,partby,zone,delt):
-        self.tab = tab
-        self.part = par.split(",")
-        self.partby = partby.split(",")
-        self.zone = zone
-        self.deltas = delt
+    def __init__(self,zon,delta):
+        self.tab = 'test.pysparkprueba_cur'#input("Put table's name: ")
+        self.prepar = "20220520" #input("Put process date (ej>20220101,20220102,20210103): ")
+        self.part = self.prepar.split(",")
+        self.prepartby ='fecha_proceso'#input("Put partition columns (ej>fecha_proceso,id_persona): ")
+        self.partby = self.prepartby.split(",")
+        self.zone = zon
+        self.deltas = delta
         self.sesion_de_spark = SparkSession.builder\
                   .enableHiveSupport()\
                   .appName("PowerfulMotorSparkEngine")\
@@ -17,12 +19,12 @@ class Insertion():
                   .config('spark.hadoop.hive.exec.dynamic.partition.mode', 'nonstrict')\
                   .getOrCreate()
        
-
+    
     def raw_without_deltas(self):
-       self.zonel = 'goa'#input("Coloque si su/s archivo/s esta en HDFS o en GOA (ej>hdfs,ej>goa): ") 
-       self.path = '/home/jferreyra/j_YYYYMMDD.txt' #input("Coloque la ruta de su/s archivo/s incluendo su nombre y reeemplanzado la fecha por YYYYMMDD: (ej: /home/jferreyra/archivo_YYYYMMDD.txt): ")
-       self.separator = '|'#|#input("Coloque el separador de su archivo (ej>|, ej>,): ")
-       self.header ='true'#input("El archivo posee header (ej>true, ej>false): ")
+       self.zonel = 'goa'#input("Put the location of the file/s. HDFS or GOA(ej>hdfs,ej>goa): ") 
+       self.path = '/home/jferreyra/j_YYYYMMDD.txt' #input("Put file/s path, including its name and replacing date with YYYYMMDD(ej: /home/jferreyra/archivo_YYYYMMDD.txt): ")
+       self.separator = '|'#|#input("Put file's delimiter(ej>|, ej>,): ")
+       self.header ='true'#input("Put whether the file has header or not(ej>true, ej>false): ")
 
        for x in range(len(self.part)):
             self.npath =  re.sub('YYYYMMDD',self.part[x],self.path)
@@ -38,15 +40,15 @@ class Insertion():
             self.sesion_de_spark.sql("""INSERT INTO %s PARTITION (%s = '%s') SELECT * FROM data_a_insertar""" % (self.tab,self.partby[0],self.part[x]))
             print("\n")
             print("\n")   
-            print("\033[;36m"+"Se han insertado {0} registros en la tabla '{1}' con fecha_proceso {2}".format(self.quantity_of_records_1,self.tab,self.part[x]))    
+            print("\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records_1,self.tab,self.part[x]))    
             print("\033[;37m")
 
 
     def raw_with_deltas(self):
-       self.zonel = 'goa'#input("Coloque si su/s archivo/s esta en HDFS o en GOA (ej>hdfs,ej>goa): ") 
-       self.path = '/home/jferreyra/query-hive-YYYYMMDD.csv' #input("Coloque la ruta de su/s archivo/s incluendo su nombre y reeemplanzado la fecha por YYYYMMDD: (ej: /home/jferreyra/archivo_YYYYMMDD.txt): ")
-       self.separator = ','#|#input("Coloque el separador de su archivo (ej>|, ej>,): ")
-       self.header ='false'#input("El archivo posee header (ej>true, ej>false): ")
+       self.zonel = 'goa'#input("Put the location of the file/s. HDFS or GOA(ej>hdfs,ej>goa): ")
+       self.path = '/home/jferreyra/query-hive-YYYYMMDD.csv'  #input("Put file/s path, including its name and replacing date with YYYYMMDD(ej: /home/jferreyra/archivo_YYYYMMDD.txt): ")
+       self.separator = ','#|#input("Put file's delimiter(ej>|, ej>,): ")
+       self.header ='false'#input("Put whether the file has header or not(ej>true, ej>false): ")
 
        self.deltas = [col.strip() for col in deltas.split(',')] 
        self.columns_raw = self.sesion_de_spark.table(self.tab).schema.names[:-len(self.partby)]
@@ -86,14 +88,15 @@ class Insertion():
 
             print("\n")
             print("\n")   
-            print("\033[;36m"+"Se han insertado {0} registros en la tabla '{1}' con fecha_proceso {2}".format(self.quantity_of_records,self.tab,self.part[x]))    
+            print("\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records,self.tab,self.part[x]))    
             print("\033[;37m")
+
 
 
     def cur_without_deltas(self):
 
        for x in range(len(self.part)):
-            self.query_input = input("Ingrese la query a insertar en curado (respetando el parametro $FECHA_PROCESO): ")
+            self.query_input = input("Put query to be inserted in cur (take $FECHA_PROCESO parameter into account: ")
             self.updated_query_one = re.sub(r'\$FECHA_PROCESO',self.part[x],self.query_input)
             self.query = self.sesion_de_spark.sql(self.updated_query_one)
             self.view = self.query.createOrReplaceTempView('new')
@@ -105,8 +108,9 @@ class Insertion():
             self.quantity_of_records_1 = self.query.count()
             print("\n")
             print("\n")   
-            print("\033[;36m"+"Se han insertado {0} registros en la tabla '{1}' con fecha_proceso {2}".format(self.quantity_of_records_1,self.tab,self.part[x]))    
+            print("\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records_1,self.tab,self.part[x]))    
             print("\033[;37m")
+
 
 
 
@@ -126,7 +130,7 @@ class Insertion():
        self.delta_statement = get_delta_statement(self.deltas, self.columns_raw)
 
        for x in range(len(self.part)):
-            self.query_input = input("Ingrese la query a insertar en curado (respetando el parametro $FECHA_PROCESO): ")
+            self.query_input = input("Put query to be inserted in cur (take $FECHA_PROCESO parameter into account: ")
             self.updated_query_one = re.sub(r'\$FECHA_PROCESO',self.part[x],self.query_input)
             self.query = self.sesion_de_spark.sql(self.updated_query_one)
             self.view = self.query.createOrReplaceTempView('data_delta')
@@ -147,37 +151,104 @@ class Insertion():
 
             print("\n")
             print("\n")   
-            print("\033[;36m"+"Se han insertado {0} registros en la tabla '{1}' con fecha_proceso {2}".format(self.quantity_of_records,self.tab,self.part[x]))    
+            print("\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records,self.tab,self.part[x]))    
             print("\033[;37m")
 
 
 
+class Adjustment():
+        
+        def __init__(self):
+                self.sesion_de_spark = SparkSession.builder\
+                  .enableHiveSupport()\
+                  .appName("PowerfulMotorSparkEngine")\
+                  .config('spark.executors.cores', '4')\
+                  .config('spark.hadoop.hive.exec.dynamic.partition', 'true')\
+                  .config('spark.hadoop.hive.exec.dynamic.partition.mode', 'nonstrict')\
+                  .getOrCreate()
+                self.tab = 'de_bsf_1raw.sbi_actab1'#input("Put table's name: ")
+                self.dir_search = '/home/jferreyra/dir_bus'#input("Put dir's name in which there are files with incorrect header: ")
+                self.target_dir ='/home/jferreyra/target_dir'#input("Put target dir's name in which all the fixed files are going to be: ")
+                self.separator = '|' #input("Put file's separator: ")   
+
+        def adjust_header(self):
+                self.columns_raw_uppercase = [col.upper() for col in self.sesion_de_spark.table("""%s""" %(self.tab)).schema.names[:-1]]
+                self.columns_final = """%s"""%(self.separator).join(self.columns_raw_uppercase)
+                self.files_list = os.listdir("""%s"""%(self.dir_search))
+                self.target_dir_created = os.mkdir(self.target_dir)
+                
+                
+                for x in self.files_list:
+                        self.path_search = os.path.join(self.dir_search,x)
+                        self.target_path = os.path.join(self.target_dir,x)
+                        self.encoding = self.find_encoding(self.path_search)
+
+                        with open("""%s"""%(self.path_search),"r",encoding = """"%s""" %(self.encoding)) as f:
+                                with open("""%s"""%(self.target_path),"w",encoding = """"%s""" %(self.encoding)) as a:
+                                        a.write(self.columns_final+'\n')
+                                        self.ff = f.readline()
+                                        while self.ff:
+                                                try:                        
+                                                        self.list_of_conditions = []
+                                                        for x in self.columns_raw_uppercase:
+                                                                self.ff_re = re.findall("{}".format(x),self.ff)
+                                                                if len(self.ff_re)!=0:
+                                                                        self.list_of_conditions.append(True)
+                                                                if len(self.ff_re) == 0:
+                                                                        self.list_of_conditions.append(False)
+                                                        self.condition = any(self.list_of_conditions)
+                                                        if self.condition == False:
+                                                                a.write(self.ff)
+                                                        self.ff = f.readline()
+                                                except:
+                                                        break
+                print("\n")   
+                print("\033[;36m"+"Operation done properly ")
+                print("\033[;37m")
+                
+        def find_encoding(self,pat_sea):
+                self.pat_sea = pat_sea
+                self.command = os.popen("file -i {}".format(self.pat_sea),'r')
+                self.command_value = self.command.read()
+                self.value = re.findall('(?<=charset=)(.*)(?=\\n)',self.command_value)
+                return self.value[0]
 
 
-#aca iria todo lo que es el main
+
+
+
+
+
+#aca iria todo lo que es el main principal
 ##################################################################################################################################################################
-task_parameter = input('''Ingrese la operacion a realizar:
-1.Insertion: ''')
+task_parameter = input('''Put the operation to perform:
+1.Insertion:
+2.Adjustment: ''')
+
+
+
+
+#####################esto iria dentro de lo que es main>insertion
 if task_parameter == '1' or task_parameter == 1:
-    table = 'test.pysparkprueba_cur'#input("Nombre de tabla: ")
-    partition  = "20220520" #input("Fecha(s) del proceso (ej>20220101,20220102,20210103): ")
-    partitionby = 'fecha_proceso'#input("Columna/s de particion/es: (ej>fecha_proceso,id_persona): ")
-    zone_of_insertion = 'cur' #input("Coloque donde se insertarian datos: (ej>raw,ej>cur,ej>ref): ")
-    deltas = '*'#input("""Coloque si hay deltas en la insercion (ej>*(todas),ej>no,ej>nombre,dni)
-    #,y considere que si la particion a insertar es la primera,no deberia tener deltas: """)   
+    zone = 'cur' #input("Put where the data is going to be inserted (ej>raw,ej>cur,ej>ref): ")
+    delt = '*'#input("""Put whether there are deltas or not (ej>*(todas),ej>no,ej>nombre,dni)
+    #,and consider that if the partitions is the first one, it should not contain deltas: """)
+    insertion1 = Insertion(zone,delt)
+    if zone == 'raw' and delt == 'no':
+        insertion1.raw_without_deltas()
+    if zone == 'raw' and delt != 'no':
+        insertion1.raw_with_deltas()
+    if zone == 'cur' and delt == 'no':
+        insertion1.cur_without_deltas()
+    if zone == 'cur' and delt != 'no':
+        insertion1.cur_with_deltas()
 
 
+########################## iria dentro de lo que es el main >adjustment
+if task_parameter == '2' or task_parameter == 2:
+    Adjustment1 = Adjustment()
+    Adjustment1.adjust_header()
 
-insertion1 = Insertion(table,partition,partitionby,zone_of_insertion,deltas)
-
-if zone_of_insertion == 'raw' and deltas == 'no':
-    insertion1.raw_without_deltas()
-if zone_of_insertion == 'raw' and deltas != 'no':
-    insertion1.raw_with_deltas()
-if zone_of_insertion == 'cur' and deltas == 'no':
-    insertion1.cur_without_deltas()
-if zone_of_insertion == 'cur' and deltas != 'no':
-    insertion1.cur_with_deltas()
 ##################################################################################################################################################################
 
 
@@ -195,15 +266,35 @@ if zone_of_insertion == 'cur' and deltas != 'no':
 
 
 
-#product backlog
+'''ver tema de emprlolijar llamadas por fuera de las clases y eso'''
 
 '''ver tema subentorno, entidad en curado queries'''
+
+
+
+
+'''ver tema de insercion en hbase'''
+
+
+
+
+
+'''ver tema de la compresion de archivos'''
+
+
+
 
 
 
 '''cambiar color de inputs (en todos).
 agregar carpeta con inserciones como historial 
 '''
+
+
+
+
+
+'''todos los inputs deben estar en ingles'''
 
 
 
@@ -245,6 +336,9 @@ entonces: 12 minutos 60 particiones de 33mb, equivalente a 2gb
 
 
 
+
+
+
 '''path x /home/jferreyra/prueba.txt'''
 
 '''
@@ -255,7 +349,11 @@ dfnn.show()
 '''harcodear el nombre del archivo'''
 
 
+
+
 ''' avisar si la particion a insertar ya esta'''
+
+
 
 
 '''
@@ -276,7 +374,10 @@ data_frame_originado_por_archivo = sesion_de_spark.read.csv('file:///home/jferre
 data_frame_originado_por_archivo.show(truncate=False)
 
 
+
 '''
+
+
 
 
 ''' caso de no traer las columnas particionadas es para cur no para raw'''
