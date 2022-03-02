@@ -1,4 +1,3 @@
-import re
 import os
 from pyspark.sql import SparkSession
 
@@ -37,10 +36,8 @@ class Insertion():
 
             self.data_frame.createOrReplaceTempView('data_a_insertar')
 
-            self.sesion_de_spark.sql("""INSERT INTO %s PARTITION (%s = '%s') SELECT * FROM data_a_insertar""" % (self.tab,self.partby[0],self.part[x]))
-            print("\n")
-            print("\n")   
-            print("\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records_1,self.tab,self.part[x]))    
+            self.sesion_de_spark.sql("""INSERT INTO %s PARTITION (%s = '%s') SELECT * FROM data_a_insertar""" % (self.tab,self.partby[0],self.part[x]))  
+            print("\n"+"\n"+"\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records_1,self.tab,self.part[x]))    
             print("\033[;37m")
 
 
@@ -86,9 +83,7 @@ class Insertion():
             self.sesion_de_spark.sql("""INSERT INTO %s PARTITION (%s = '%s')
                 SELECT * FROM df_insert_deltas""" % (self.tab,self.partby[0],self.part[x]))
 
-            print("\n")
-            print("\n")   
-            print("\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records,self.tab,self.part[x]))    
+            print("\n"+"\n"+"\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records,self.tab,self.part[x]))    
             print("\033[;37m")
 
 
@@ -106,9 +101,7 @@ class Insertion():
                        SELECT * FROM new""" % (self.tab,self.partby[0],self.part[x]))
 
             self.quantity_of_records_1 = self.query.count()
-            print("\n")
-            print("\n")   
-            print("\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records_1,self.tab,self.part[x]))    
+            print("\n"+"\n"+"\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records_1,self.tab,self.part[x]))    
             print("\033[;37m")
 
 
@@ -149,9 +142,7 @@ class Insertion():
                 SELECT * FROM df_insert_deltas""" % (self.tab,self.partby[0],self.part[x]))
 
 
-            print("\n")
-            print("\n")   
-            print("\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records,self.tab,self.part[x]))    
+            print("\n"+"\n"+"\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records,self.tab,self.part[x]))    
             print("\033[;37m")
 
 
@@ -166,7 +157,7 @@ class Adjustment():
                   .config('spark.hadoop.hive.exec.dynamic.partition', 'true')\
                   .config('spark.hadoop.hive.exec.dynamic.partition.mode', 'nonstrict')\
                   .getOrCreate()
-                self.tab = 'de_bsf_1raw.sbi_actab1'#input("Put table's name: ")
+                self.tab = 'de_bsf_1raw.sbi_cacctabf'#input("Put table's name: ")
                 self.dir_search = '/home/jferreyra/dir_bus'#input("Put dir's name in which there are files with incorrect header: ")
                 self.target_dir ='/home/jferreyra/target_dir'#input("Put target dir's name in which all the fixed files are going to be: ")
                 self.separator = '|' #input("Put file's separator: ")   
@@ -202,10 +193,9 @@ class Adjustment():
                                                         self.ff = f.readline()
                                                 except:
                                                         break
-                print("\n")   
-                print("\033[;36m"+"Operation done properly ")
-                print("\033[;37m")
-                
+
+                print("\n"+"\033[;36m"+"Operation done properly "+"\033[;37m")
+
         def find_encoding(self,pat_sea):
                 self.pat_sea = pat_sea
                 self.command = os.popen("file -i {}".format(self.pat_sea),'r')
@@ -214,170 +204,91 @@ class Adjustment():
                 return self.value[0]
 
 
+class Querying():
+    def __init__(self):
+            self.sesion_de_spark = SparkSession.builder\
+            .enableHiveSupport()\
+            .appName("PowerfulMotorSparkEngine")\
+            .config('spark.executors.cores', '4')\
+            .config('spark.hadoop.hive.exec.dynamic.partition', 'true')\
+            .config('spark.hadoop.hive.exec.dynamic.partition.mode', 'nonstrict')\
+            .getOrCreate()
+            
+       
+    def fast_visualization(self):
+        self.query = input("Put query to be saved:")
+        self.df = self.sesion_de_spark.sql(self.query)
+        self.df.show()
+    def saving(self):
+        self.query = input("Put query to be saved:")
+        self.df = self.sesion_de_spark.sql(self.query)
+        self.df.write.csv(self.path)
 
 
 
 
+def main():
+    ##################################################################################################################################################################
+         #print"\033[;36m"   
+          #  print("\033[;37m")
 
-#aca iria todo lo que es el main principal
-##################################################################################################################################################################
-task_parameter = input('''Put the operation to perform:
-1.Insertion:
-2.Adjustment: ''')
+    task_parameter = input("\033[;36m"+'''Put the operation to perform:
+    1.Insertion:
+    2.Adjustment:
+    3.Querying:
+    '''+"\033[;37m")
+
+    ###################esto iria dentro de lo que es main>insertion
+    if task_parameter == '1' or task_parameter == 1:
+        zone = 'cur' #input("Put where the data is going to be inserted (ej>raw,ej>cur,ej>ref): ")
+        delt = '*'#input("""Put whether there are deltas or not (ej>*(todas),ej>no,ej>nombre,dni)
+        #,and consider that if the partitions is the first one, it should not contain deltas: """)
+        insertion1 = Insertion(zone,delt)
+        if zone == 'raw' and delt == 'no':
+            insertion1.raw_without_deltas()
+        if zone == 'raw' and delt != 'no':
+            insertion1.raw_with_deltas()
+        if zone == 'cur' and delt == 'no':
+            insertion1.cur_without_deltas()
+        if zone == 'cur' and delt != 'no':
+            insertion1.cur_with_deltas()
 
 
-
-
-#####################esto iria dentro de lo que es main>insertion
-if task_parameter == '1' or task_parameter == 1:
-    zone = 'cur' #input("Put where the data is going to be inserted (ej>raw,ej>cur,ej>ref): ")
-    delt = '*'#input("""Put whether there are deltas or not (ej>*(todas),ej>no,ej>nombre,dni)
-    #,and consider that if the partitions is the first one, it should not contain deltas: """)
-    insertion1 = Insertion(zone,delt)
-    if zone == 'raw' and delt == 'no':
-        insertion1.raw_without_deltas()
-    if zone == 'raw' and delt != 'no':
-        insertion1.raw_with_deltas()
-    if zone == 'cur' and delt == 'no':
-        insertion1.cur_without_deltas()
-    if zone == 'cur' and delt != 'no':
-        insertion1.cur_with_deltas()
-
-
-########################## iria dentro de lo que es el main >adjustment
-if task_parameter == '2' or task_parameter == 2:
-    Adjustment1 = Adjustment()
-    Adjustment1.adjust_header()
-
-##################################################################################################################################################################
-
+    ########################## iria dentro de lo que es el main >adjustment
+    if task_parameter == '2' or task_parameter == 2:
+        adjustment1 = Adjustment()
+        adjustment1.adjust_header()
 
 
 
+    ########################## iria dentro de lo que es el main >querying
+    if task_parameter == '3' or task_parameter == 3:
+        querying1 = Querying()
+        task = input("""Put what to do:
+        a.Querying and getting fast result:
+        b.Querying and saving it to a file in a specified path: """)
+    if task == 'a':
+        querying1.fast_visualization()
+    if task == 'b':
+        querying1.saving()
+    ##################################################################################################################################################################
 
 
 
-
-
-
-
-
-
-
+#main()
 
 
 '''ver tema de emprlolijar llamadas por fuera de las clases y eso'''
-
-'''ver tema subentorno, entidad en curado queries'''
-
-
-
-
 '''ver tema de insercion en hbase'''
-
-
-
-
-
 '''ver tema de la compresion de archivos'''
-
-
-
-
-
-
 '''cambiar color de inputs (en todos).
 agregar carpeta con inserciones como historial 
 '''
-
-
-
-
-
-'''todos los inputs deben estar en ingles'''
-
-
-
 '''PRIORIDAD ALTA'''
-'''ver tema particiones dinamicas'''
 '''contemplar caso de arcivos comprimidos (todos basicamente)'''
 '''ver tema encoding'''
-'''EL CAMPO QUE LE PASE AL LEFT ANTI JOIN SERA 
-AQUEL QUE SE FIJARA SI ESTA O NO EN LA TABLA'''
-'''comprobar esto>esta comprobado:
- los deltas no cuentan la feca proceso cuando es asterisco en deltas'''
-
-''''
-ej: 
-feca 1:
-
-
-ver el tema de multiple partitions, o sea basada la insercion en mas de una partiticion. Como aria ai 
-
-'''
-
-'''ver tema del encoding'''
-
-
-'''agregar colores a los outputs
-'''
 '''ver tema de particion repetida y eso al momento de insertar'''
-
-
 '''mediciones: 12 segundos por cada 33 mb por cada particion
 entonces: 12 minutos 60 particiones de 33mb, equivalente a 2gb 
 '''
-
-
-'''agregar el se an insertado'''
-
-
 '''cambiar los inputs para cuando sea por terminal linux y que quede con los sysargv , sysargvs[1]..'''
-
-
-
-
-
-
-'''path x /home/jferreyra/prueba.txt'''
-
-'''
-dfnn = self.sesion_de_spark.sql("select * from de_bsf_2cur.ft_riesgos_antecedentes_negativos")
-dfnn.show()
-'''       
-
-'''harcodear el nombre del archivo'''
-
-
-
-
-''' avisar si la particion a insertar ya esta'''
-
-
-
-
-'''
-def main():
-    task_parameter = input("Ingrese la operacion a realizar: ")
-    if task_parameter =='Insertion':
-        insercion_x = Insertion()
-
-        
-data_frame_originado_por_archivo = sesion_de_spark.sql("select * from de_bsf_2cur.rel_cliente_core_documentos")
-
-data_frame_originado_por_archivo .show()
-
-}
-
-data_frame_originado_por_archivo = sesion_de_spark.read.csv('file:///home/jferreyra/ACTAB1_20220103.txt',header='true',sep ="|")
-
-data_frame_originado_por_archivo.show(truncate=False)
-
-
-
-'''
-
-
-
-
-''' caso de no traer las columnas particionadas es para cur no para raw'''
