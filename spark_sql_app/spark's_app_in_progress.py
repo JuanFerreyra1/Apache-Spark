@@ -1,15 +1,20 @@
 import os
 from pyspark.sql import SparkSession
+import re
+import time
+
+
 
 class Insertion():
     def __init__(self,zon,delta):
-        self.tab = 'test.pysparkprueba_cur'#input("Put table's name: ")
-        self.prepar = "20220520" #input("Put process date (ej>20220101,20220102,20210103): ")
+        self.tab = 'test.pysparkprueba3'#input("Put table's name: ")
+        self.prepar = "20220105" #input("Put process date (ej>20220101,20220102,20210103): ")
         self.part = self.prepar.split(",")
         self.prepartby ='fecha_proceso'#input("Put partition columns (ej>fecha_proceso,id_persona): ")
         self.partby = self.prepartby.split(",")
         self.zone = zon
         self.deltas = delta
+        self.file_status ='si' #input("Put whethere the file is compressed or not (ej>no,si): ")
         self.sesion_de_spark = SparkSession.builder\
                   .enableHiveSupport()\
                   .appName("PowerfulMotorSparkEngine")\
@@ -17,16 +22,48 @@ class Insertion():
                   .config('spark.hadoop.hive.exec.dynamic.partition', 'true')\
                   .config('spark.hadoop.hive.exec.dynamic.partition.mode', 'nonstrict')\
                   .getOrCreate()
-       
-    
-    def raw_without_deltas(self):
-       self.zonel = 'goa'#input("Put the location of the file/s. HDFS or GOA(ej>hdfs,ej>goa): ") 
-       self.path = '/home/jferreyra/j_YYYYMMDD.txt' #input("Put file/s path, including its name and replacing date with YYYYMMDD(ej: /home/jferreyra/archivo_YYYYMMDD.txt): ")
-       self.separator = '|'#|#input("Put file's delimiter(ej>|, ej>,): ")
-       self.header ='true'#input("Put whether the file has header or not(ej>true, ej>false): ")
 
-       for x in range(len(self.part)):
-            self.npath =  re.sub('YYYYMMDD',self.part[x],self.path)
+
+
+    def raw_without_deltas(self):
+
+        self.zonel = 'goa'#input("Put the location of the file/s. HDFS or GOA(ej>hdfs,ej>goa): ") 
+        self.path = '/home/jferreyra/pruebacom/CACCTABF_20220105.txt.gz' #input("Put file/s path, including its name and replacing date with YYYYMMDD(ej: /home/jferreyra/archivo_YYYYMMDD.txt): ")
+        self.separator = '|'#|#input("Put file's delimiter(ej>|, ej>,): ")
+        self.header ='true'#input("Put whether the file has header or not(ej>true, ej>false): ")
+
+        def set_up_file(compressed_file_prepath,fechas):
+            def find_encoding(pat_sea):
+                command = os.popen("file -i {}".format(pat_sea),'r')
+                command_value = command.read()
+                value = re.findall('(?<=charset=)(.*)(?=\\n)',command_value)
+                return value[0]
+
+            for x in fechas:
+                compressed_file_path = re.sub('YYYYMMDD',x,compressed_file_prepath)
+                print("\033[;36m"+"Descomprimiendo archivo..."+"\033[;37m")
+                time.sleep(3)
+                os.popen("gzip -d {}".format(compressed_file_path),'r')
+                os.wait()
+                uncompressed_file_path = re.sub('.gz','',compressed_file_path)
+                encoding = find_encoding(uncompressed_file_path)
+                date = re.search('[0-9]{6,8}',uncompressed_file_path)[0]
+                uncompressed_file_path_random = re.sub(date,date+'c',uncompressed_file_path)
+                os.popen("iconv -f {0} -t utf8 {1} > {2}".format(encoding,uncompressed_file_path,uncompressed_file_path_random))
+                os.popen("rm {}".format(uncompressed_file_path))
+                os.popen("mv {0} {1}".format(uncompressed_file_path_random,uncompressed_file_path))
+
+
+
+        if self.file_status == 'si':
+            set_up_file(self.path,self.part)
+
+        for x in range(len(self.part)):
+            if self.file_status == 'si':
+                self.new_path = re.sub('.gz','',self.path)
+            else:
+                self.new_path = self.path
+            self.npath =  re.sub('YYYYMMDD',self.part[x],self.new_path)
             if self.zonel == 'goa':
                  self.data_frame = self.sesion_de_spark.read.csv("""file://%s"""% (self.npath),header="""%s"""% (self.header),sep="""%s"""% (self.separator))
             else:
@@ -36,19 +73,53 @@ class Insertion():
 
             self.data_frame.createOrReplaceTempView('data_a_insertar')
 
+            print("\033[;36m"+"Inicio de la insercion..."+"\033[;37m")
+            time.sleep(2)
             self.sesion_de_spark.sql("""INSERT INTO %s PARTITION (%s = '%s') SELECT * FROM data_a_insertar""" % (self.tab,self.partby[0],self.part[x]))  
             print("\n"+"\n"+"\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records_1,self.tab,self.part[x]))    
             print("\033[;37m")
 
+        
+        
 
+
+
+        
     def raw_with_deltas(self):
-       self.zonel = 'goa'#input("Put the location of the file/s. HDFS or GOA(ej>hdfs,ej>goa): ")
-       self.path = '/home/jferreyra/query-hive-YYYYMMDD.csv'  #input("Put file/s path, including its name and replacing date with YYYYMMDD(ej: /home/jferreyra/archivo_YYYYMMDD.txt): ")
-       self.separator = ','#|#input("Put file's delimiter(ej>|, ej>,): ")
-       self.header ='false'#input("Put whether the file has header or not(ej>true, ej>false): ")
 
-       self.deltas = [col.strip() for col in deltas.split(',')] 
+       self.zonel = 'goa'#input("Put the location of the file/s. HDFS or GOA(ej>hdfs,ej>goa): ")
+       self.path = '/home/jferreyra/pruebacom/j_YYYYMMDD.txt.gz'  #input("Put file/s path, including its name and replacing date with YYYYMMDD(ej: /home/jferreyra/archivo_YYYYMMDD.txt): ")
+       self.separator = '|'#|#input("Put file's delimiter(ej>|, ej>,): ")
+       self.header ='True'#input("Put whether the file has header or not(ej>true, ej>false): ")
+
+       def set_up_file(compressed_file_prepath,fechas):
+            def find_encoding(pat_sea):
+                command = os.popen("file -i {}".format(pat_sea),'r')
+                command_value = command.read()
+                value = re.findall('(?<=charset=)(.*)(?=\\n)',command_value)
+                return value[0]
+
+            for x in fechas:
+                compressed_file_path = re.sub('YYYYMMDD',x,compressed_file_prepath)
+                print("\033[;36m"+"Descomprimiendo archivo..."+"\033[;37m")
+                time.sleep(3)
+                os.popen("gzip -d {}".format(compressed_file_path),'r')
+                os.wait()
+                uncompressed_file_path = re.sub('.gz','',compressed_file_path)
+                encoding = find_encoding(uncompressed_file_path)
+                date = re.search('[0-9]{6,8}',uncompressed_file_path)[0]
+                uncompressed_file_path_random = re.sub(date,date+'c',uncompressed_file_path)
+                os.popen("iconv -f {0} -t utf8 {1} > {2}".format(encoding,uncompressed_file_path,uncompressed_file_path_random))
+                os.popen("rm {}".format(uncompressed_file_path))
+                os.popen("mv {0} {1}".format(uncompressed_file_path_random,uncompressed_file_path))
+
+       if self.file_status == 'si':
+            set_up_file(self.path,self.part)
+
+       self.deltas = [col.strip() for col in self.deltas.split(',')] 
        self.columns_raw = self.sesion_de_spark.table(self.tab).schema.names[:-len(self.partby)]
+
+
        def get_delta_statement(deltas, columns):
             if deltas[0] == '*':
                 self.delta_columns = (("nvl(a.%s,'null')" % col, "nvl(b.%s,'null')" % col) for col in self.columns_raw)
@@ -61,7 +132,12 @@ class Insertion():
        self.delta_statement = get_delta_statement(self.deltas, self.columns_raw)
 
        for x in range(len(self.part)):
-            self.npath =  re.sub('YYYYMMDD',self.part[x],self.path)
+            if self.file_status == 'si':
+                self.new_path = re.sub('.gz','',self.path)
+            else:
+                self.new_path = self.path
+            
+            self.npath =  re.sub('YYYYMMDD',self.part[x],self.new_path)
 
             if self.zonel == 'goa':
                 self.data_frame = self.sesion_de_spark.read.csv("""file://%s"""% (self.npath),header="""%s"""% (self.header),sep="""%s"""% (self.separator))
@@ -80,9 +156,11 @@ class Insertion():
             self.data_frame_deltas.createOrReplaceTempView('df_insert_deltas')
             self.quantity_of_records = self.data_frame_deltas.count()
 
+            print("\033[;36m"+"Inicio de la insercion..."+"\033[;37m")
+            time.sleep(2)
+
             self.sesion_de_spark.sql("""INSERT INTO %s PARTITION (%s = '%s')
                 SELECT * FROM df_insert_deltas""" % (self.tab,self.partby[0],self.part[x]))
-
             print("\n"+"\n"+"\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records,self.tab,self.part[x]))    
             print("\033[;37m")
 
@@ -95,10 +173,13 @@ class Insertion():
             self.updated_query_one = re.sub(r'\$FECHA_PROCESO',self.part[x],self.query_input)
             self.query = self.sesion_de_spark.sql(self.updated_query_one)
             self.view = self.query.createOrReplaceTempView('new')
-        
+
+            print("\033[;36m"+"Inicio de la insercion..."+"\033[;37m")
+            time.sleep(2)
 
             self.sesion_de_spark.sql("""INSERT INTO %s PARTITION (%s = '%s')
                        SELECT * FROM new""" % (self.tab,self.partby[0],self.part[x]))
+
 
             self.quantity_of_records_1 = self.query.count()
             print("\n"+"\n"+"\033[;36m"+"{0} records have been inserted in the table '{1}' with fecha_proceso {2}".format(self.quantity_of_records_1,self.tab,self.part[x]))    
@@ -137,6 +218,10 @@ class Insertion():
             self.quantity_of_records = self.data_frame_deltas.count()
 
             self.data_frame_deltas.createOrReplaceTempView('df_insert_deltas')
+
+
+            print("\033[;36m"+"Inicio de la insercion..."+"\033[;37m")
+            time.sleep(2)
 
             self.sesion_de_spark.sql("""INSERT INTO %s PARTITION (%s = '%s')
                 SELECT * FROM df_insert_deltas""" % (self.tab,self.partby[0],self.part[x]))
@@ -240,8 +325,8 @@ def main():
 
     ###################esto iria dentro de lo que es main>insertion
     if task_parameter == '1' or task_parameter == 1:
-        zone = 'cur' #input("Put where the data is going to be inserted (ej>raw,ej>cur,ej>ref): ")
-        delt = '*'#input("""Put whether there are deltas or not (ej>*(todas),ej>no,ej>nombre,dni)
+        zone = 'raw' #input("Put where the data is going to be inserted (ej>raw,ej>cur,ej>ref): ")
+        delt = 'no'#input("""Put whether there are deltas or not (ej>*(todas),ej>no,ej>nombre,dni)
         #,and consider that if the partitions is the first one, it should not contain deltas: """)
         insertion1 = Insertion(zone,delt)
         if zone == 'raw' and delt == 'no':
@@ -267,28 +352,27 @@ def main():
         task = input("""Put what to do:
         a.Querying and getting fast result:
         b.Querying and saving it to a file in a specified path: """)
-    if task == 'a':
-        querying1.fast_visualization()
-    if task == 'b':
-        querying1.saving()
+        if task == 'a':
+            querying1.fast_visualization()
+        if task == 'b':
+            querying1.saving()
     ##################################################################################################################################################################
 
 
 
-#main()
+main()
 
 
 '''ver tema de emprlolijar llamadas por fuera de las clases y eso'''
 '''ver tema de insercion en hbase'''
-'''ver tema de la compresion de archivos'''
-'''cambiar color de inputs (en todos).
-agregar carpeta con inserciones como historial 
+'''agregar carpeta con inserciones como historial 
 '''
 '''PRIORIDAD ALTA'''
-'''contemplar caso de arcivos comprimidos (todos basicamente)'''
-'''ver tema encoding'''
 '''ver tema de particion repetida y eso al momento de insertar'''
 '''mediciones: 12 segundos por cada 33 mb por cada particion
 entonces: 12 minutos 60 particiones de 33mb, equivalente a 2gb 
 '''
 '''cambiar los inputs para cuando sea por terminal linux y que quede con los sysargv , sysargvs[1]..'''
+'''dividir script en modulos '''
+'''contemplar subidas a hdfs'''
+''''ver caso de extension gzip'''
